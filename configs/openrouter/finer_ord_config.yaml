@@ -1,0 +1,48 @@
+# OpenRouter configuration for FiNER-ORD dataset
+# Set OPENROUTER_API_KEY in .env file before running
+
+provider: openrouter
+model: deepseek/deepseek-chat-v3.1:free
+
+# Dataset
+dataset: gtfintechlab/finer-ord
+split: test
+limit: 20
+
+# Output
+output: report_openrouter_finer_ord_deepseek.json
+
+# ACE Framework settings
+reflect_rounds: 3
+top_k: 8
+dedup_threshold: 0.85
+embedding_model: all-MiniLM-L6-v2
+
+# Offline warmup (optional)
+offline_warmup_epochs: 0
+offline_warmup_limit: 0
+
+# Statistical evaluation
+bootstrap_iters: 200
+
+# Cost tracking (set rates for your model)
+prompt_cost_per_1k: null
+completion_cost_per_1k: null
+currency: USD
+
+# Reproducibility
+seed: 42
+sleep: true
+
+# Label-free mode (for unsupervised adaptation)
+label_free: false
+bio_threshold: 0.9
+agreement_threshold: 0.8
+
+# Role-specific models (optional - use cheaper models for reflector/curator)
+# generator_provider: null
+# generator_model: null
+# reflector_provider: null
+# reflector_model: null
+# curator_provider: null
+# curator_model: null

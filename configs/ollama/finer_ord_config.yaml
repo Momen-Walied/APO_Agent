@@ -1,0 +1,48 @@
+# Ollama configuration for FiNER-ORD dataset
+# Ensure Ollama daemon is running and model is pulled: ollama pull qwen2.5:7b
+
+provider: ollama
+model: qwen3:4b
+
+# Dataset
+dataset: gtfintechlab/finer-ord
+split: test
+limit: 20
+
+# Output
+output: report_ollama_finer_ord_qwen.json
+
+# ACE Framework settings
+reflect_rounds: 3
+top_k: 8
+dedup_threshold: 0.85
+embedding_model: all-MiniLM-L6-v2
+
+# Offline warmup (optional)
+offline_warmup_epochs: 0
+offline_warmup_limit: 0
+
+# Statistical evaluation
+bootstrap_iters: 200
+
+# Cost tracking (free for local models)
+prompt_cost_per_1k: null
+completion_cost_per_1k: null
+currency: USD
+
+# Reproducibility
+seed: 42
+sleep: false  # No rate limits for local models
+
+# Label-free mode (for unsupervised adaptation)
+label_free: false
+bio_threshold: 0.9
+agreement_threshold: 0.8
+
+# Role-specific models (use smaller models for reflector/curator to save compute)
+# generator_provider: ollama
+# generator_model: qwen2.5:7b
+# reflector_provider: ollama
+# reflector_model: qwen2.5:3b
+# curator_provider: ollama
+# curator_model: qwen2.5:3b

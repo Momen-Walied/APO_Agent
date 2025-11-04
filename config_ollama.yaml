@@ -1,0 +1,36 @@
+# Run configuration for the evaluator
+# Supported providers: gemini | openrouter | ollama
+# For gemini, set GEMINI_API_KEY in your environment or .env
+# For openrouter, set OPENROUTER_API_KEY in your environment or .env
+# For ollama, ensure the Ollama daemon is running and the model is pulled locally.
+
+provider: ollama
+model: qwen3:4b
+
+# Recommended dataset to avoid script-loading issues
+# You can also try: nlpaueb/finer-139 (will auto-fallback if unsupported)
+dataset: gtfintechlab/finer-ord
+
+# Optional extras
+split: test
+limit: 20
+# If omitted, the app generates a filename automatically
+output: report_finer_ord_deepseek.json
+
+# ACE enhancements
+reflect_rounds: 3           # iterative reflector rounds per sample on error
+top_k: 8                    # retrieve top-K bullets per sample
+dedup_threshold: 0.85       # embedding similarity threshold for deduplication
+embedding_model: all-MiniLM-L6-v2   # set to null to force TF-IDF fallback
+
+# Offline warmup on train/validation split (optional)
+offline_warmup_epochs: 0
+offline_warmup_limit: 0
+
+# Statistical confidence (optional; higher = more compute)
+bootstrap_iters: 200
+
+# Optional cost estimation (only used if set)
+prompt_cost_per_1k: null
+completion_cost_per_1k: null
+currency: USD

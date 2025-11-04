@@ -1,0 +1,40 @@
+# Ollama configuration for FiNER-139 dataset
+# Ensure Ollama daemon is running and model is pulled: ollama pull qwen2.5:7b
+
+provider: ollama
+model: qwen3:4b
+
+# Dataset
+dataset: nlpaueb/finer-139
+split: test
+limit: 20
+
+# Output
+output: report_ollama_finer_139_qwen.json
+
+# ACE Framework settings
+reflect_rounds: 3
+top_k: 8
+dedup_threshold: 0.85
+embedding_model: all-MiniLM-L6-v2
+
+# Offline warmup (optional)
+offline_warmup_epochs: 0
+offline_warmup_limit: 0
+
+# Statistical evaluation
+bootstrap_iters: 200
+
+# Cost tracking (free for local models)
+prompt_cost_per_1k: null
+completion_cost_per_1k: null
+currency: USD
+
+# Reproducibility
+seed: 42
+sleep: false  # No rate limits for local models
+
+# Label-free mode (for unsupervised adaptation)
+label_free: false
+bio_threshold: 0.9
+agreement_threshold: 0.8

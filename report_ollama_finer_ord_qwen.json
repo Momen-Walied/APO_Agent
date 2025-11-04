@@ -1,0 +1,111 @@
+{
+  "dataset": "gtfintechlab/finer-ord",
+  "provider": "ollama",
+  "model": "qwen3:4b",
+  "num_samples": 2,
+  "baseline_token_accuracy": 0.85,
+  "post_adaptation_token_accuracy": 0.95,
+  "baseline_token_f1": 0.0,
+  "post_adaptation_token_f1": 0.0,
+  "baseline_span_f1": 0.0,
+  "post_adaptation_span_f1": 0.0,
+  "baseline_span_f1_ci": {
+    "low": 0.0,
+    "high": 0.0
+  },
+  "post_span_f1_ci": {
+    "low": 0.0,
+    "high": 0.0
+  },
+  "span_f1_improvement": 0.0,
+  "span_f1_improvement_pvalue": 1.0,
+  "mcnemar_p_token_acc": 0.4795001221869534,
+  "per_entity_baseline": {
+    "LOC": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "tp": 0,
+      "fp": 2,
+      "fn": 0
+    }
+  },
+  "per_entity_post": {
+    "LOC": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "tp": 0,
+      "fp": 1,
+      "fn": 0
+    }
+  },
+  "accuracy_improvement": 0.09999999999999998,
+  "f1_improvement": 0.0,
+  "adaptation_steps_added": 0,
+  "baseline_time_seconds": 272.975,
+  "adaptation_time_seconds": 2636.285,
+  "offline_warmup": {
+    "epochs": 0,
+    "steps_added": 0,
+    "time_seconds": 0.0
+  },
+  "usage": {
+    "calls": 108,
+    "prompt_chars": 520616,
+    "response_chars": 770456,
+    "prompt_tokens_est": 130116,
+    "response_tokens_est": 192556,
+    "openrouter_prompt_tokens": 0,
+    "openrouter_completion_tokens": 0,
+    "by_stage": {
+      "generator": {
+        "calls": 40,
+        "prompt_chars": 26320,
+        "response_chars": 289112,
+        "prompt_tokens_est": 6576,
+        "response_tokens_est": 72256,
+        "openrouter_prompt_tokens": 0,
+        "openrouter_completion_tokens": 0,
+        "latency_seconds": 4046.20405960083
+      },
+      "reflector": {
+        "calls": 68,
+        "prompt_chars": 494296,
+        "response_chars": 481344,
+        "prompt_tokens_est": 123540,
+        "response_tokens_est": 120300,
+        "openrouter_prompt_tokens": 0,
+        "openrouter_completion_tokens": 0,
+        "latency_seconds": 7513.555776596069
+      }
+    }
+  },
+  "estimated_cost": null,
+  "estimated_cost_by_stage": null,
+  "currency": "USD",
+  "final_playbook": "No playbook strategies available yet.",
+  "metadata": {
+    "seed": 42,
+    "dataset_fingerprint": "321eabdb3c043fc5",
+    "dataset_num_rows": 20,
+    "providers": {
+      "default": {
+        "provider": "ollama",
+        "model": "qwen3:4b"
+      },
+      "generator": {
+        "provider": "ollama",
+        "model": "qwen3:4b"
+      },
+      "reflector": {
+        "provider": "ollama",
+        "model": "qwen3:4b"
+      },
+      "curator": {
+        "provider": "ollama",
+        "model": "qwen3:4b"
+      }
+    }
+  }
+}

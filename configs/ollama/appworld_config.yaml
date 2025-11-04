@@ -1,0 +1,28 @@
+# Ollama configuration for AppWorld ReAct tasks
+# Ensure Ollama daemon is running and model is pulled: ollama pull qwen2.5:7b
+
+provider: ollama
+model: qwen3:4b
+
+# AppWorld ReAct settings
+run_appworld: true
+react_max_steps: 8
+
+# Load from HuggingFace dataset
+appworld_hf_dataset: databricks/databricks-dolly-15k
+appworld_hf_split: train
+appworld_instruction_field: instruction
+appworld_expected_field: response
+limit: 20
+
+# Output
+output: report_ollama_appworld_qwen.json
+
+# Reproducibility
+seed: 42
+sleep: false
+
+# Cost tracking (free for local)
+prompt_cost_per_1k: null
+completion_cost_per_1k: null
+currency: USD
