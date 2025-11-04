@@ -235,6 +235,21 @@ class LLMClient:
                 self._hf_model = self._hf_model.to(device)
             self._hf_model.eval()
             logging.info(f"[HuggingFace] Model loaded on {device}")
+        elif self.provider == "vllm":
+            try:
+                from vllm import LLM, SamplingParams
+                self._vllm_engine = LLM
+                self._vllm_sampling = SamplingParams
+            except ImportError as e:
+                raise RuntimeError("vLLM provider requires: pip install vllm") from e
+            logging.info(f"[vLLM] Initializing {model_name}...")
+            self._vllm = self._vllm_engine(
+                model=model_name,
+                trust_remote_code=True,
+                gpu_memory_utilization=0.9,
+                max_model_len=4096,
+            )
+            logging.info(f"[vLLM] Model {model_name} ready")
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
         logging.info(f"[LLMClient] provider={self.provider} model={model_name}")
@@ -363,6 +378,23 @@ class LLMClient:
             # Decode only the new tokens (exclude input)
             generated_tokens = outputs[0][inputs.input_ids.shape[1]:]
             text = self._hf_tokenizer.decode(generated_tokens, skip_special_tokens=True).strip()
+            self._record_usage(prompt, text, None, stage=stage, latency_s=time.time() - t0)
+            return text
+        elif self.provider == "vllm":
+            t0 = time.time()
+            # vLLM uses SamplingParams for generation config
+            sampling_params = self._vllm_sampling(
+                temperature=0.1,
+                max_tokens=2048,
+                top_p=0.95,
+            )
+            # Format prompt with chat template
+            formatted_prompt = f"<|im_start|>system\nYou are a helpful assistant. Reply with valid JSON only when requested.<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+            
+            # Generate (vLLM handles batching internally)
+            outputs = self._vllm.generate([formatted_prompt], sampling_params)
+            text = outputs[0].outputs[0].text.strip()
+            
             self._record_usage(prompt, text, None, stage=stage, latency_s=time.time() - t0)
             return text
         else:

@@ -1,0 +1,23 @@
+# vLLM Baseline (for speed comparison)
+provider: vllm
+model: Qwen/Qwen2.5-7B-Instruct
+
+dataset: gtfintechlab/finer-ord
+split: train
+limit: 50
+
+output: reports/vllm_baseline_finer_ord.json
+
+# Standard ACE settings
+reflect_rounds: 3
+top_k: 8
+dedup_threshold: 0.85
+embedding_model: all-MiniLM-L6-v2
+
+# Disable optimizations for fair comparison
+enable_early_stopping: false
+convergence_threshold: 0.95
+
+bootstrap_iters: 200
+seed: 42
+sleep: false
