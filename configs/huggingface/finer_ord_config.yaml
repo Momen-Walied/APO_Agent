@@ -7,8 +7,8 @@ model: Qwen/Qwen2.5-7B-Instruct
 
 # Dataset
 dataset: gtfintechlab/finer-ord
-split: test
-limit: 20
+split: train  # train has more entity-rich samples than test
+limit: 50     # Need 50+ for statistical significance
 
 # Output
 output: report_huggingface_finer_ord.json

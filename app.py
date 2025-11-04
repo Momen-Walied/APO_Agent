@@ -548,7 +548,7 @@ class ContextPlaybook:
                     out += f"- [{b['id']}] {b['content']}\n"
         return out
 
-    def get_context_string_for_sample(self, sample: Dict[str, Any], top_k: int = 8) -> (str, List[str]):
+    def get_context_string_for_sample(self, sample: Dict[str, Any], top_k: int = 8, use_usefulness_weighting: bool = True) -> (str, List[str]):
         if not self.bullets:
             return self.get_context_string(), []
         query_text = " ".join(sample.get("tokens", [])) if "tokens" in sample else str(sample.get("query", ""))
@@ -565,7 +565,18 @@ class ContextPlaybook:
             sims = cosine_similarity(q, self._tfidf_matrix).flatten()
         else:
             sims = np.array([SequenceMatcher(None, query_text, c).ratio() for c in contents])
-        idx = np.argsort(-sims)[:max(1, min(top_k, len(self.bullets)))]
+        
+        # Usefulness weighting: combine similarity with helpful/harmful ratio
+        if use_usefulness_weighting:
+            usefulness_scores = np.array([
+                b["helpful"] / (b["helpful"] + b["harmful"] + 1) for b in self.bullets
+            ])
+            # Combined score: 70% similarity + 30% usefulness
+            combined_scores = 0.7 * sims + 0.3 * usefulness_scores
+            idx = np.argsort(-combined_scores)[:max(1, min(top_k, len(self.bullets)))]
+        else:
+            idx = np.argsort(-sims)[:max(1, min(top_k, len(self.bullets)))]
+        
         selected = [self.bullets[i] for i in idx]
         used_ids = [b["id"] for b in selected]
         out = "--- CONTEXT PLAYBOOK (retrieved) ---\n"
@@ -684,7 +695,8 @@ Return JSON: {{"operations": [{{"type":"ADD","section":"financial_ner","content"
 class ACEFramework:
     def __init__(self, llm_client: LLMClient, reflect_rounds: int = 1, top_k_bullets: int = 8, dedup_threshold: float = 0.85, embedding_model: Optional[str] = None,
                  generator_llm: Optional[LLMClient] = None, reflector_llm: Optional[LLMClient] = None, curator_llm: Optional[LLMClient] = None,
-                 label_free: bool = False, bio_threshold: float = 0.9, agreement_threshold: float = 0.8):
+                 label_free: bool = False, bio_threshold: float = 0.9, agreement_threshold: float = 0.8,
+                 enable_early_stopping: bool = True, convergence_threshold: float = 0.95):
         self.llm = llm_client
         self.playbook = ContextPlaybook(dedup_threshold=dedup_threshold, embedding_model=embedding_model)
         self.generator = Generator(generator_llm or llm_client, top_k_bullets=top_k_bullets)
@@ -694,6 +706,8 @@ class ACEFramework:
         self.label_free = bool(label_free)
         self.bio_threshold = float(bio_threshold)
         self.agreement_threshold = float(agreement_threshold)
+        self.enable_early_stopping = bool(enable_early_stopping)
+        self.convergence_threshold = float(convergence_threshold)
 
     def _should_curate(self, insights: Dict[str, Any]) -> bool:
         # deterministic pre-filter: minimum length and semantic novelty
@@ -704,6 +718,28 @@ class ACEFramework:
         if sims and max(sims) >= (self.playbook.dedup_threshold - 0.02):
             return False
         return True
+    
+    def _insight_similarity(self, text1: str, text2: str) -> float:
+        """Compute semantic similarity between two insight texts using playbook's embedding backend."""
+        if not text1 or not text2:
+            return 0.0
+        try:
+            # Use playbook's embedding method if available
+            if hasattr(self.playbook, '_embed_text'):
+                emb1 = self.playbook._embed_text(text1)
+                emb2 = self.playbook._embed_text(text2)
+                if emb1 is not None and emb2 is not None:
+                    # Cosine similarity
+                    import numpy as np
+                    norm1 = np.linalg.norm(emb1)
+                    norm2 = np.linalg.norm(emb2)
+                    if norm1 > 0 and norm2 > 0:
+                        return float(np.dot(emb1, emb2) / (norm1 * norm2))
+            # Fallback: simple string overlap
+            from difflib import SequenceMatcher
+            return SequenceMatcher(None, text1, text2).ratio()
+        except Exception:
+            return 0.0
 
     def run_adaptation_step(self, sample: Dict[str, Any], ground_truth: Any) -> Dict[str, Any]:
         gen_resp = self.generator.generate(sample, self.playbook)
@@ -743,8 +779,19 @@ class ACEFramework:
             delta_added = False
             if not correct:
                 prev_ins = []
-                for _ in range(self.reflect_rounds):
+                for round_idx in range(self.reflect_rounds):
                     insights = self.reflector.reflect(sample, str(gen_resp.get("pred_tags")), feedback, previous_insights=prev_ins)
+                    
+                    # Early stopping: check convergence with previous round
+                    if self.enable_early_stopping and round_idx > 0 and prev_ins:
+                        current_insight = insights.get("key_insight", "")
+                        prev_insight = prev_ins[-1].get("key_insight", "")
+                        if current_insight and prev_insight:
+                            similarity = self._insight_similarity(current_insight, prev_insight)
+                            if similarity >= self.convergence_threshold:
+                                logging.info(f"[ACE] Early stopping at round {round_idx+1}/{self.reflect_rounds}: convergence={similarity:.3f}")
+                                break
+                    
                     prev_ins.append(insights)
                     if not self._should_curate(insights):
                         continue
@@ -807,8 +854,8 @@ class ACEFramework:
 
 
 # === 5. Dataset helpers for FiNER ===
-def load_task_dataset(dataset_name: str, split: str = "test"):
-    logging.info(f"[Dataset] Loading {dataset_name} split={split} ...")
+def load_task_dataset(dataset_name: str, split: str = "test", max_rows: Optional[int] = None):
+    logging.info(f"[Dataset] Loading {dataset_name} split={split} with max_rows={max_rows}...")
     try:
         ds = load_dataset(dataset_name, split=split)
     except Exception as e1:
@@ -830,8 +877,8 @@ def load_task_dataset(dataset_name: str, split: str = "test"):
             else:
                 raise e2
     
-    if limit:
-        ds = ds.select(range(min(limit, len(ds))))
+    if max_rows:
+        ds = ds.select(range(min(max_rows, len(ds))))
     logging.info(f"[Dataset] Loaded {len(ds)} samples.")
     return ds
 
@@ -1358,24 +1405,33 @@ def evaluate_online_with_gemini(dataset_name: str, provider: str, model_name: st
     g_llm = LLMClient(provider=generator_provider or provider, model_name=generator_model or model_name) if (generator_provider or generator_model) else llm
     r_llm = LLMClient(provider=reflector_provider or provider, model_name=reflector_model or model_name) if (reflector_provider or reflector_model) else llm
     c_llm = LLMClient(provider=curator_provider or provider, model_name=curator_model or model_name) if (curator_provider or curator_model) else llm
+    # Phase 1 optimizations
+    enable_early_stopping = cfg.get("enable_early_stopping", True)
+    convergence_threshold = float(cfg.get("convergence_threshold", 0.95))
+    
     ace = ACEFramework(llm, reflect_rounds=reflect_rounds, top_k_bullets=top_k, dedup_threshold=dedup_threshold, embedding_model=embedding_model,
                        generator_llm=g_llm, reflector_llm=r_llm, curator_llm=c_llm,
-                       label_free=label_free, bio_threshold=bio_threshold, agreement_threshold=agreement_threshold)
+                       label_free=label_free, bio_threshold=bio_threshold, agreement_threshold=agreement_threshold,
+                       enable_early_stopping=enable_early_stopping, convergence_threshold=convergence_threshold)
 
     # For finer-ord format, each row is one token, so we need to load more rows to get desired sentence count
-    # Heuristic: load limit*50 rows (avg ~50 tokens per sentence) to ensure enough sentences
-    raw_limit = limit * 50 if limit else None
-    ds = load_task_dataset(dataset_name, split=split)
+    # Heuristic: load limit*200 rows (conservative estimate to ensure enough complete sentences)
+    raw_limit = limit * 200 if limit else None
+    logging.info(f"[Dataset] Desired samples: {limit}, loading {raw_limit} raw rows for token-per-row datasets")
+    ds = load_task_dataset(dataset_name, split=split, max_rows=raw_limit)
+    logging.info(f"[Dataset] Full dataset has {len(ds)} rows")
     
     # If limit specified, take subset of raw dataset before grouping
     if raw_limit and len(ds) > raw_limit:
         ds = ds.select(range(min(raw_limit, len(ds))))
+        logging.info(f"[Dataset] Selected first {len(ds)} rows for grouping")
     
     # detect if dataset is FiNER-like (tokens + ner_tags)
     # if so, prepare accordingly
     samples = []
     # try FiNER
     samples = prepare_finer_samples(ds)
+    logging.info(f"[Dataset] Grouped {len(ds)} rows into {len(samples)} samples (sentences)")
     if not samples:
         # fallback: try original numeric extractor
         samples = []

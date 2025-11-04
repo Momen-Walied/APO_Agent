@@ -1,0 +1,31 @@
+# Model Tiering (Large Gen + Medium Ref + Small Cur)
+provider: huggingface
+model: Qwen/Qwen2.5-14B-Instruct
+
+dataset: gtfintechlab/finer-ord
+split: train
+limit: 50
+
+output: reports/tiered_models_finer_ord.json
+
+# Role-specific models
+generator_provider: huggingface
+generator_model: Qwen/Qwen2.5-14B-Instruct
+reflector_provider: huggingface
+reflector_model: Qwen/Qwen2.5-14B-Instruct
+curator_provider: huggingface
+curator_model: Qwen/Qwen2.5-7B-Instruct
+
+# Standard ACE settings
+reflect_rounds: 3
+top_k: 8
+dedup_threshold: 0.85
+embedding_model: all-MiniLM-L6-v2
+
+# Enable Phase 1 optimizations
+enable_early_stopping: true
+convergence_threshold: 0.95
+
+bootstrap_iters: 200
+seed: 42
+sleep: false

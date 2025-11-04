@@ -1,0 +1,23 @@
+# Baseline ACE (no optimizations)
+provider: huggingface
+model: Qwen/Qwen2.5-7B-Instruct
+
+dataset: gtfintechlab/finer-ord
+split: train
+limit: 50
+
+output: reports/baseline_finer_ord.json
+
+# Standard ACE settings
+reflect_rounds: 3
+top_k: 8
+dedup_threshold: 0.85
+embedding_model: all-MiniLM-L6-v2
+
+# Disable Phase 1 optimizations
+enable_early_stopping: false
+convergence_threshold: 0.95
+
+bootstrap_iters: 200
+seed: 42
+sleep: false
