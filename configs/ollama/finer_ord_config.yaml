@@ -7,7 +7,7 @@ model: qwen3:4b
 # Dataset
 dataset: gtfintechlab/finer-ord
 split: test
-limit: 20
+limit: 100
 
 # Output
 output: report_ollama_finer_ord_qwen.json

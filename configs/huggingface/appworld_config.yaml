@@ -1,0 +1,29 @@
+# HuggingFace Transformers configuration for AppWorld ReAct tasks
+# Models are loaded locally via transformers library
+# Requires: pip install transformers torch accelerate
+
+provider: huggingface
+model: Qwen/Qwen2.5-7B-Instruct
+
+# AppWorld ReAct settings
+run_appworld: true
+react_max_steps: 8
+
+# Load from HuggingFace dataset
+appworld_hf_dataset: databricks/databricks-dolly-15k
+appworld_hf_split: train
+appworld_instruction_field: instruction
+appworld_expected_field: response
+limit: 50
+
+# Output
+output: report_huggingface_appworld.json
+
+# Reproducibility
+seed: 42
+sleep: false
+
+# Cost tracking (free for local)
+prompt_cost_per_1k: null
+completion_cost_per_1k: null
+currency: USD

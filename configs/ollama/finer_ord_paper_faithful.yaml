@@ -1,0 +1,61 @@
+# ACE Framework config matching original paper settings
+# Paper: "Agentic Context Engineering: Evolving LLM Contexts with Reflection and Refinement"
+# Task: Financial NER (FiNER-ORD)
+
+# Model settings (paper used DeepSeek-V3, we use Qwen2.5-14B for quality)
+provider: ollama
+model: qwen2.5:14b
+
+# Dataset
+dataset: gtfintechlab/finer-ord
+split: train  # Use train split for more entity-rich samples
+limit: 50     # Start with 50 to ensure we get entities
+
+# Output
+output: report_ace_paper_faithful.json
+
+# === ACE Framework Parameters (from paper) ===
+
+# Reflection rounds (paper uses 3-5)
+reflect_rounds: 3
+
+# Top-K bullet retrieval (paper uses 5-10)
+top_k: 8
+
+# Semantic deduplication threshold (paper uses 0.85)
+dedup_threshold: 0.85
+
+# Embedding model for retrieval
+embedding_model: all-MiniLM-L6-v2
+
+# === Offline Warmup (optional, paper Section 4.3) ===
+# Multi-epoch adaptation on labeled data before online deployment
+offline_warmup_epochs: 2
+offline_warmup_limit: 20
+
+# === Evaluation Settings ===
+# Statistical significance testing
+bootstrap_iters: 1000
+
+# Cost tracking (free for Ollama)
+prompt_cost_per_1k: null
+completion_cost_per_1k: null
+currency: USD
+
+# Reproducibility
+seed: 42
+sleep: false
+
+# === Label-free adaptation (paper Section 4.4) ===
+label_free: false  # Set true to test unsupervised adaptation
+bio_threshold: 0.9
+agreement_threshold: 0.8
+
+# === Role-specific models (optional optimization) ===
+# Paper uses same model for all roles, but you can tier for efficiency:
+# generator_provider: ollama
+# generator_model: qwen2.5:14b
+# reflector_provider: ollama
+# reflector_model: qwen2.5:14b
+# curator_provider: ollama
+# curator_model: qwen2.5:7b

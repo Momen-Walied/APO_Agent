@@ -1,0 +1,50 @@
+# HuggingFace Transformers configuration for FiNER-ORD dataset
+# Models are loaded locally via transformers library
+# Requires: pip install transformers torch accelerate
+
+provider: huggingface
+model: Qwen/Qwen2.5-7B-Instruct
+
+# Dataset
+dataset: gtfintechlab/finer-ord
+split: test
+limit: 20
+
+# Output
+output: report_huggingface_finer_ord.json
+
+# ACE Framework settings
+reflect_rounds: 3
+top_k: 8
+dedup_threshold: 0.85
+embedding_model: all-MiniLM-L6-v2
+
+# Offline warmup (optional)
+offline_warmup_epochs: 0
+offline_warmup_limit: 0
+
+# Statistical evaluation
+bootstrap_iters: 200
+
+# Cost tracking (free for local models)
+prompt_cost_per_1k: null
+completion_cost_per_1k: null
+currency: USD
+
+# Reproducibility
+seed: 42
+sleep: false  # No rate limits for local models
+
+# Label-free mode
+label_free: false
+bio_threshold: 0.9
+agreement_threshold: 0.8
+
+# Role-specific models (use smaller models for efficiency)
+# Uncomment to use different models per role
+# generator_provider: huggingface
+# generator_model: Qwen/Qwen2.5-7B-Instruct
+# reflector_provider: huggingface
+# reflector_model: Qwen/Qwen2.5-14B-Instruct
+# curator_provider: huggingface
+# curator_model: meta-llama/Llama-3.2-3B-Instruct

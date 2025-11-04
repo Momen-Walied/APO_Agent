@@ -47,6 +47,13 @@ except Exception:
     seq_recall_score = None
     get_entities = None
 
+try:
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+    import torch
+    TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    TRANSFORMERS_AVAILABLE = False
+
 load_dotenv()
 
 # external libs
@@ -174,7 +181,7 @@ def load_yaml_config(path: Optional[str]) -> Dict[str, Any]:
 
 # === 1. LLM Client (multi-provider) ===
 class LLMClient:
-    def __init__(self, provider: str = "gemini", model_name: str = "gemini-flash-lite-latest", timeout: int = 30):
+    def __init__(self, provider: str = "gemini", model_name: str = "gemini-flash-lite-latest", api_key: Optional[str] = None, timeout: int = 300):
         self.provider = provider.lower()
         self.model_name = model_name
         self.timeout = timeout
@@ -196,7 +203,7 @@ class LLMClient:
                 import google.generativeai as genai
             except Exception as e:
                 raise ImportError("Install google-generativeai (pip install google-generativeai) to use provider 'gemini'.") from e
-            api_key = os.getenv("GEMINI_API_KEY")
+            api_key = api_key or os.getenv("GEMINI_API_KEY")
             if not api_key:
                 raise RuntimeError("GEMINI_API_KEY not found in environment. Set it before running.")
             genai.configure(api_key=api_key)
@@ -212,6 +219,22 @@ class LLMClient:
             except Exception as e:
                 raise ImportError("Install ollama (pip install ollama) and ensure the Ollama daemon is running to use provider 'ollama'.") from e
             self._ollama = ollama
+        elif self.provider == "huggingface":
+            if not TRANSFORMERS_AVAILABLE:
+                raise RuntimeError("HuggingFace provider requires: pip install transformers torch accelerate")
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            logging.info(f"[HuggingFace] Loading {model_name} on {device}...")
+            self._hf_tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            self._hf_model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+                device_map="auto" if device == "cuda" else None,
+                trust_remote_code=True
+            )
+            if device == "cpu":
+                self._hf_model = self._hf_model.to(device)
+            self._hf_model.eval()
+            logging.info(f"[HuggingFace] Model loaded on {device}")
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
         logging.info(f"[LLMClient] provider={self.provider} model={model_name}")
@@ -314,6 +337,34 @@ class LLMClient:
                 text = json.dumps(res)
                 self._record_usage(prompt, text, None, stage=stage, latency_s=time.time() - t0)
                 return text
+        elif self.provider == "huggingface":
+            t0 = time.time()
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant. Reply with valid JSON only when requested."},
+                {"role": "user", "content": prompt}
+            ]
+            # Apply chat template
+            input_text = self._hf_tokenizer.apply_chat_template(
+                messages, 
+                tokenize=False, 
+                add_generation_prompt=True
+            )
+            inputs = self._hf_tokenizer(input_text, return_tensors="pt").to(self._hf_model.device)
+            
+            with torch.no_grad():
+                outputs = self._hf_model.generate(
+                    **inputs,
+                    max_new_tokens=2048,
+                    temperature=0.1,
+                    do_sample=True,
+                    pad_token_id=self._hf_tokenizer.eos_token_id
+                )
+            
+            # Decode only the new tokens (exclude input)
+            generated_tokens = outputs[0][inputs.input_ids.shape[1]:]
+            text = self._hf_tokenizer.decode(generated_tokens, skip_special_tokens=True).strip()
+            self._record_usage(prompt, text, None, stage=stage, latency_s=time.time() - t0)
+            return text
         else:
             raise ValueError("Unsupported provider")
 
@@ -1311,8 +1362,15 @@ def evaluate_online_with_gemini(dataset_name: str, provider: str, model_name: st
                        generator_llm=g_llm, reflector_llm=r_llm, curator_llm=c_llm,
                        label_free=label_free, bio_threshold=bio_threshold, agreement_threshold=agreement_threshold)
 
+    # For finer-ord format, each row is one token, so we need to load more rows to get desired sentence count
+    # Heuristic: load limit*50 rows (avg ~50 tokens per sentence) to ensure enough sentences
+    raw_limit = limit * 50 if limit else None
     ds = load_task_dataset(dataset_name, split=split)
-
+    
+    # If limit specified, take subset of raw dataset before grouping
+    if raw_limit and len(ds) > raw_limit:
+        ds = ds.select(range(min(raw_limit, len(ds))))
+    
     # detect if dataset is FiNER-like (tokens + ner_tags)
     # if so, prepare accordingly
     samples = []
